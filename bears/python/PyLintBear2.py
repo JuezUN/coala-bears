@@ -22,10 +22,10 @@ class PyLintBear:
     Checks the code with pylint. This will run pylint over each file
     separately.
     """
-    LANGUAGES = {'Python', 'Python 2', 'Python 3'}
+    LANGUAGES = {'Python', 'Python 2'}
     REQUIREMENTS = {PipRequirement('pylint', '1.6')}
-    AUTHORS = {'The coala developers'}
-    AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
+    AUTHORS = {'Andres Rondon'}
+    AUTHORS_EMAILS = {'amrondonp@gmail.com'}
     LICENSE = 'AGPL-3.0'
     CAN_DETECT = {'Unused Code', 'Formatting', 'Duplication', 'Security',
                   'Syntax'}
