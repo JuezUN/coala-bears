@@ -32,7 +32,8 @@ class FormatRBear:
                 apt_get='r-cran-formatr',
                 zypper='R-formatR',
              ),
-             RscriptRequirement('formatR'),
+             RscriptRequirement('formatR',
+                                version='>1.5'),
              ]
         )
     }
@@ -43,13 +44,14 @@ class FormatRBear:
     @staticmethod
     @deprecate_settings(indent_size='tab_width')
     def create_arguments(filename, file, config_file,
-                         r_keep_comments: bool=True,
-                         r_keep_blank_lines: bool=True,
-                         r_braces_on_next_line: bool=None,
-                         r_use_arrows: bool=None,
+                         r_keep_comments: bool = True,
+                         r_keep_blank_lines: bool = True,
+                         r_braces_on_next_line: bool = None,
+                         r_use_arrows: bool = None,
                          indent_size:
-                         int=SpacingHelper.DEFAULT_TAB_WIDTH,
-                         r_max_expression_length: int=0):
+                             int = SpacingHelper.DEFAULT_TAB_WIDTH,
+                         r_max_expression_length: int = 0,
+                         ):
         """
         :param r_keep_comments:
             Determines whether comments are kept or not.

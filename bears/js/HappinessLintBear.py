@@ -12,13 +12,21 @@ class HappinessLintBear:
     See <https://github.com/JedWatson/happiness/> for more information.
     """
     LANGUAGES = {'JavaScript'}
-    REQUIREMENTS = {NpmRequirement('happiness', '7.1.2')}
+    REQUIREMENTS = {NpmRequirement('happiness', '10')}
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
     LICENSE = 'AGPL-3.0'
     ASCIINEMA_URL = 'https://asciinema.org/a/80714'
     CAN_DETECT = {'Syntax'}
 
-    @staticmethod
-    def create_arguments(filename, file, config_file):
+    @classmethod
+    def create_arguments(cls, filename, file, config_file,
+                         use_spaces: bool = False,
+                         ):
+        if use_spaces:
+            raise ValueError(
+                '"use_spaces=True" is incompatible with {}, '
+                'set it to false.'.format(cls.name)
+            )
+
         return filename,

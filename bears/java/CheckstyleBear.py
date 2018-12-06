@@ -13,6 +13,8 @@ _online_styles = {
     'checkstyle/checkstyle-hard.xml',
 }
 
+_checkstyle_version = '6.19'
+
 # To be deprecated
 known_checkstyles = dict(_online_styles, **{'google': None, 'sun': None})
 
@@ -32,6 +34,8 @@ def known_checkstyle_or_path(setting):
 
 
 @linter(executable='java',
+        normalize_column_numbers=True,
+        remove_zero_numbers=True,
         output_format='regex',
         output_regex=r'\[(?P<severity>ERROR|WARN|INFO)\].*?'
                      r'(?P<line>\d+):?(?P<column>\d+)?. '
@@ -52,15 +56,18 @@ class CheckstyleBear:
     CAN_DETECT = {'Formatting', 'Smell'}
 
     def setup_dependencies(self):
+        version = _checkstyle_version
         type(self).checkstyle_jar_file = self.download_cached_file(
-            'http://sourceforge.net/projects/checkstyle/files/checkstyle/6.19'
-            '/checkstyle-6.19-all.jar',
+            'https://github.com/checkstyle/checkstyle/releases/download/'
+            'checkstyle-%s/checkstyle-%s-all.jar' % (version, version),
             'checkstyle-6.19.jar')
 
     def create_arguments(
             self, filename, file, config_file,
-            checkstyle_configs: known_checkstyle_or_path='google',
-            use_spaces: bool=True, indent_size: int=2):
+            checkstyle_configs: known_checkstyle_or_path = 'google',
+            use_spaces: bool = True,
+            indent_size: int = 2,
+            ):
         """
         :param checkstyle_configs:
             A file containing configs to use in ``checkstyle``. It can also

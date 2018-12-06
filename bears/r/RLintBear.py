@@ -24,11 +24,14 @@ class RLintBear:
     LANGUAGES = {'R'}
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
-    REQUIREMENTS = {RscriptRequirement('lintr'),
+    REQUIREMENTS = {RscriptRequirement('lintr',
+                                       version='>=1.0.2'),
                     DistributionRequirement(apt_get='r-base',
                                             version='>=3.1.1')}
     LICENSE = 'AGPL-3.0'
+    ASCIINEMA_URL = 'https://asciinema.org/a/178910'
     CAN_DETECT = {'Syntax', 'Formatting'}
+    SEE_MORE = 'https://github.com/jimhester/lintr'
 
     @staticmethod
     def create_arguments(filename, file, config_file):

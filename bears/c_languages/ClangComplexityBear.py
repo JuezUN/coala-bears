@@ -2,9 +2,10 @@ from clang.cindex import Index, CursorKind
 
 from coalib.bears.LocalBear import LocalBear
 from coalib.results.Result import Result
-from coalib.results.SourceRange import SourceRange
 from coalib.bearlib import deprecate_settings
-from bears.c_languages.ClangBear import clang_available, ClangBear
+from bears.c_languages.ClangBear import (
+    clang_available, ClangBear, sourcerange_from_clang_range,
+)
 
 
 class ClangComplexityBear(LocalBear):
@@ -76,7 +77,9 @@ class ClangComplexityBear(LocalBear):
                 yield from self.complexities(child, filename)
 
     @deprecate_settings(cyclomatic_complexity='max_complexity')
-    def run(self, filename, file, cyclomatic_complexity: int=8):
+    def run(self, filename, file,
+            cyclomatic_complexity: int = 8,
+            ):
         """
         Check for all functions if they are too complicated using the
         cyclomatic complexity metric.
@@ -96,7 +99,7 @@ class ClangComplexityBear(LocalBear):
         root = Index.create().parse(filename).cursor
         for cursor, complexity in self.complexities(root, filename):
             if complexity > cyclomatic_complexity:
-                affected_code = (SourceRange.from_clang_range(cursor.extent),)
+                affected_code = (sourcerange_from_clang_range(cursor.extent),)
                 yield Result(
                     self,
                     "The function '{function}' should be simplified. Its "

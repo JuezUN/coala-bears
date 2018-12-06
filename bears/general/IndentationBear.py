@@ -25,9 +25,10 @@ class IndentationBear(LocalBear):
             file,
             dependency_results: dict,
             language: str,
-            use_spaces: bool=True,
-            indent_size: int=SpacingHelper.DEFAULT_TAB_WIDTH,
-            coalang_dir: str=None):
+            use_spaces: bool = True,
+            indent_size: int = SpacingHelper.DEFAULT_TAB_WIDTH,
+            coalang_dir: str = None,
+            ):
         """
         It is a generic indent bear, which looks for a start and end
         indent specifier, example: ``{ : }`` where "{" is the start indent
@@ -86,7 +87,7 @@ class IndentationBear(LocalBear):
                 annotation_dict)
         encaps_pos = tuple(sorted(encaps_pos, key=lambda x: x.start.line))
 
-        comments = dict(lang_settings_dict['comment_delimiter'])
+        comments = dict(lang_settings_dict['comment_delimiters'])
         comments.update(
             dict(lang_settings_dict['multiline_comment_delimiters']))
 
@@ -165,7 +166,7 @@ class IndentationBear(LocalBear):
 
         :param file:            A tuple of strings.
         :param filename:        Name of file.
-        :param encaps_pos:      A tuple ofSourceRanges of code regions
+        :param encaps_pos:      A tuple of SourceRanges of code regions
                                 trapped in between a matching pair of
                                 encapsulators.
         :param annotation_dict: A dictionary containing sourceranges of all the

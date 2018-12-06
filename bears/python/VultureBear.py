@@ -1,45 +1,38 @@
-import re
-from shutil import which
-
 from coalib.bears.GlobalBear import GlobalBear
-from dependency_management.requirements.PipRequirement import PipRequirement
-from coalib.misc.Shell import run_shell_command
 from coalib.results.Result import Result
+from dependency_management.requirements.PipRequirement import PipRequirement
+from vulture import Vulture
+
+
+def _find_unused_code(filenames):
+    """
+    :param filenames: List of filenames to check.
+    :return: Generator of Result objects.
+    """
+    vulture = Vulture()
+    vulture.scavenge(filenames)
+    for item in vulture.get_unused_code():
+        yield Result.from_values(origin='VultureBear',
+                                 message=item.message,
+                                 file=item.filename,
+                                 line=item.first_lineno,
+                                 end_line=item.last_lineno,
+                                 confidence=item.confidence)
 
 
 class VultureBear(GlobalBear):
     LANGUAGES = {'Python', 'Python 3'}
-    REQUIREMENTS = {PipRequirement('vulture', '0.10.0')}
+    REQUIREMENTS = {PipRequirement('vulture', '0.25.0')}
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
     LICENSE = 'AGPL-3.0'
     ASCIINEMA_URL = 'https://asciinema.org/a/82256'
     CAN_DETECT = {'Unused Code'}
-
-    EXECUTABLE = 'vulture'
-    OUTPUT_REGEX = re.compile(
-        r'(?P<filename>.*):(?P<line>.*):\s*(?P<message>.*)')
-
-    @classmethod
-    def check_prerequisites(cls):
-        return ('Vulture is missing. Make sure to install it using '
-                '`pip3 install vulture`.'
-                if which('vulture') is None else True)
+    SEE_MORE = 'https://github.com/jendrikseipp/vulture'
 
     def run(self):
         """
         Check Python code for unused variables and functions using `vulture`.
-
-        See <https://bitbucket.org/jendrikseipp/vulture> for more information.
         """
-        stdout_output, _ = run_shell_command(
-            (self.EXECUTABLE,) +
-            tuple(filename for filename in self.file_dict.keys()),
-            cwd=self.get_config_dir())
-
-        for match in re.finditer(self.OUTPUT_REGEX, stdout_output):
-            groups = match.groupdict()
-            yield Result.from_values(origin=self,
-                                     message=groups['message'],
-                                     file=groups['filename'],
-                                     line=int(groups['line']))
+        filenames = list(self.file_dict.keys())
+        return _find_unused_code(filenames)

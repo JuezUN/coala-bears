@@ -26,7 +26,7 @@ class PHPCodeSnifferBear:
             [DistributionRequirement(apt_get='php-codesniffer',
                                      zypper='php-pear-php_codesniffer',
                                      ),
-             ComposerRequirement('squizlabs/php_codesniffer'),
+             ComposerRequirement('squizlabs/php_codesniffer', '3.3.2'),
              ],
         ),
     }
@@ -43,20 +43,21 @@ class PHPCodeSnifferBear:
 
     @staticmethod
     def generate_config(filename, file,
-                        max_line_length: int=79,
-                        line_ending_character: str='\\n',
-                        indent_size: int=SpacingHelper.DEFAULT_TAB_WIDTH,
-                        use_spaces: bool=True,
-                        allow_multiple_statements_per_line: bool=False,
-                        force_lower_case_keywords: bool=True,
-                        force_lower_case_constants: bool=True,
-                        blank_line_after_namespace_declaration: bool=True,
-                        check_use_blocks: bool=True,
-                        check_class_declaration: bool=True,
-                        check_property_declaration: bool=True,
-                        force_scope_modifier_on_method: bool=True,
-                        function_declaration_argument_spacing: int=1,
-                        allow_multiline_function_declaration: bool=True):
+                        max_line_length: int = 79,
+                        line_ending_character: str = '\\n',
+                        indent_size: int = SpacingHelper.DEFAULT_TAB_WIDTH,
+                        use_spaces: bool = True,
+                        allow_multiple_statements_per_line: bool = False,
+                        force_lower_case_keywords: bool = True,
+                        force_lower_case_constants: bool = True,
+                        blank_line_after_namespace_declaration: bool = True,
+                        check_use_blocks: bool = True,
+                        check_class_declaration: bool = True,
+                        check_property_declaration: bool = True,
+                        force_scope_modifier_on_method: bool = True,
+                        function_declaration_argument_spacing: int = 1,
+                        allow_multiline_function_declaration: bool = True,
+                        ):
         """
         :param max_line_length:
             Maximum number of characters for a line.
@@ -129,6 +130,7 @@ class PHPCodeSnifferBear:
  <rule ref="Generic.Files.LineLength">
   <properties>
    <property name="lineLimit" value="{max_line_length}"/>
+   <property name="absoluteLineLimit" value="{absolute_line_length}"/>
   </properties>
  </rule>
  <rule ref="Generic.Files.LineEndings">
@@ -162,6 +164,7 @@ class PHPCodeSnifferBear:
  </rule>
 </ruleset>
 '''.format(max_line_length=max_line_length,
+           absolute_line_length=0,
            line_ending_character=line_ending_character,
            indent_size=indent_size,
            some_rules=rules,

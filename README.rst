@@ -9,6 +9,8 @@ supported by coala. It features more than **78 bears** covering
 that contains information about each bear, such as the languages it supports and
 what fixes it can apply to your code.
 
+|Throughput Graph|
+
 -----
 
 .. contents::
@@ -22,7 +24,7 @@ what fixes it can apply to your code.
 Installation
 ============
 
-To install the **latest stable version** run:
+To install the **latest stable version**, run:
 
 .. code-block:: bash
 
@@ -30,7 +32,7 @@ To install the **latest stable version** run:
 
 |Stable|
 
-To install the latest development version run:
+To install the latest development version, run:
 
 .. code-block:: bash
 
@@ -39,22 +41,11 @@ To install the latest development version run:
 The latest code from the master branch is automatically deployed as the
 development version in PyPI.
 
-To also install all bears for coala at once run:
+To also install all bears for coala at once, run:
 
 .. code-block:: bash
 
     $ pip3 install coala-bears
-
-You can also use ``cib`` (coala Installs Bears), which is an experimental bear
-manager that lets you install, upgrade, uninstall, check dependencies, etc.
-for bears. To install it, run:
-
-.. code-block:: bash
-
-    $ pip3 install cib
-
-For usage instructions, consult
-`this link <http://api.coala.io/en/latest/Developers/Bear_Installation_Tool.html>`__.
 
 Be sure to use the latest version of pip, the default pip from Debian doesn't
 support our dependency version number specifiers. You will have to `use a
@@ -80,21 +71,21 @@ To see what coala can do for your language, run:
 +============================+============================+============================+
 | C                          | Latex                      | SQL                        |
 +----------------------------+----------------------------+----------------------------+
-| C++                        | Lua                        | Swift                      |
+| C++                        | Lua                        | Stylus                     |
 +----------------------------+----------------------------+----------------------------+
-| C#                         | Markdown                   | TypeScript                 |
+| C#                         | Markdown                   | Swift                      |
 +----------------------------+----------------------------+----------------------------+
-| CMake                      | Matlab/Octave              | Verilog                    |
+| CMake                      | Matlab/Octave              | TypeScript                 |
 +----------------------------+----------------------------+----------------------------+
-| CoffeeScript               | Natural Language (English) | VHDL                       |
+| CoffeeScript               | Natural Language (English) | Verilog                    |
 +----------------------------+----------------------------+----------------------------+
-| CSS                        | Perl                       | Vimscript                  |
+| CSS                        | Perl                       | VHDL                       |
 +----------------------------+----------------------------+----------------------------+
-| Dart                       | PHP                        | XML                        |
+| Dart                       | PHP                        | Vimscript                  |
 +----------------------------+----------------------------+----------------------------+
-| Fortran                    | Python 2                   | YAML                       |
+| Fortran                    | Python 2                   | XML                        |
 +----------------------------+----------------------------+----------------------------+
-| Go                         | Python 3                   |                            |
+| Go                         | Python 3                   | YAML                       |
 +----------------------------+----------------------------+----------------------------+
 | Haskell                    | R                          |                            |
 +----------------------------+----------------------------+----------------------------+
@@ -177,7 +168,7 @@ License
 |AGPL|
 
 
-.. |Stable| image:: https://img.shields.io/badge/latest%20stable-0.10.0-green.svg
+.. |Stable| image:: https://img.shields.io/badge/latest%20stable-0.11.1-green.svg
 .. |PyPI| image:: https://img.shields.io/pypi/v/coala-bears.svg
    :target: https://pypi.python.org/pypi/coala-bears
 .. |Linux| image:: https://img.shields.io/circleci/project/coala/coala-bears/master.svg?label=linux%20build
@@ -192,3 +183,6 @@ License
    :target: https://gitter.im/coala/coala
 .. |AGPL| image:: https://img.shields.io/github/license/coala/coala-bears.svg
    :target: https://www.gnu.org/licenses/agpl-3.0.html
+.. |Throughput Graph| image:: https://graphs.waffle.io/coala/coala-bears/throughput.svg
+   :target: https://waffle.io/coala/coala-bears/metrics/throughput
+   :alt: 'Throughput Graph'

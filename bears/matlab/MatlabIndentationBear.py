@@ -12,10 +12,13 @@ class MatlabIndentationBear(LocalBear):
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
     LICENSE = 'AGPL-3.0'
+    ASCIINEMA_URL = 'https://asciinema.org/a/6JlCUNivHbk60c84m8A6sHRs0'
     CAN_DETECT = {'Formatting'}
 
     @deprecate_settings(indent_size='tab_width')
-    def run(self, filename, file, indent_size: int=2):
+    def run(self, filename, file,
+            indent_size: int = 2,
+            ):
         """
         This bear features a simple algorithm to calculate the right
         indentation for Matlab/Octave code. However, it will not handle hanging

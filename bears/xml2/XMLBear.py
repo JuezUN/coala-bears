@@ -42,6 +42,7 @@ class XMLBear:
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
     LICENSE = 'AGPL-3.0'
     CAN_DETECT = {'Formatting', 'Syntax'}
+    CAN_FIX = {'Formatting'}
 
     _output_regex = re.compile(
         r'.*:(?P<line>\d+):.*(?P<severity>error|warning)\s?: '
@@ -49,18 +50,23 @@ class XMLBear:
 
     @staticmethod
     def create_arguments(filename, file, config_file,
-                         xml_schema: path='',
-                         xml_dtd: path_or_url=''):
+                         xml_schema: path = '',
+                         xml_dtd: path_or_url = '',
+                         xml_relaxng: path = '',
+                         ):
         """
         :param xml_schema: ``W3C XML Schema`` file used for validation.
         :param xml_dtd:    ``Document type Definition (DTD)`` file or
                            url used for validation.
+        :param xml_relaxng:``RelaxNG Schema`` file used for validation.
         """
         args = (filename,)
         if xml_schema:
             args += ('-schema', xml_schema)
         if xml_dtd:
             args += ('-dtdvalid', xml_dtd)
+        if xml_relaxng:
+            args += ('-relaxng', xml_relaxng)
 
         return args
 

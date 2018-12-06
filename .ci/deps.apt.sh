@@ -1,12 +1,15 @@
+#!/bin/bash
+
 set -e
 set -x
 
-TERM=dumb
+# This script is no longer used by Travis CI.
+# Any related aspects can be removed if beneficial.
 
 # apt-get commands
 export DEBIAN_FRONTEND=noninteractive
 
-deps="libclang1-3.4 indent mono-mcs chktex r-base julia golang-go luarocks verilator cppcheck flawfinder devscripts"
+deps="libclang1-3.4 astyle indent mono-mcs chktex r-base julia golang-go luarocks verilator cppcheck flawfinder devscripts mercurial"
 deps_infer="m4 opam"
 
 case $CIRCLE_BUILD_IMAGE in
@@ -45,6 +48,7 @@ if [ -n "$ADD_APT_UBUNTU_RELEASE" ]; then
 fi
 
 if [ "$USE_PPAS" = "true" ]; then
+  sudo add-apt-repository -y ppa:cs50/ppa
   sudo add-apt-repository -y ppa:marutter/rdev
   sudo add-apt-repository -y ppa:staticfloat/juliareleases
   sudo add-apt-repository -y ppa:staticfloat/julia-deps
@@ -56,7 +60,7 @@ elif [ -n "$USE_PPAS" ]; then
   done
 fi
 
-deps_perl="perl libperl-critic-perl"
+deps_perl="libperl-critic-perl"
 
 sudo apt-get -y update
 sudo apt-get -y --no-install-recommends install $deps $deps_perl $deps_infer
@@ -68,6 +72,3 @@ if [[ "$CIRCLE_BUILD_IMAGE" == "ubuntu-14.04" ]]; then
   sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 20
   sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-4.9 20
 fi
-
-# Change environment for flawfinder from python to python2
-sudo sed -i '1s/.*/#!\/usr\/bin\/env python2/' /usr/bin/flawfinder

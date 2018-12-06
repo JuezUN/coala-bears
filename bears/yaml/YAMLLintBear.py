@@ -19,7 +19,7 @@ class YAMLLintBear:
     """
 
     LANGUAGES = {'YAML'}
-    REQUIREMENTS = {PipRequirement('yamllint', '1.6.1')}
+    REQUIREMENTS = {PipRequirement('yamllint', '1.12.0')}
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
     LICENSE = 'AGPL-3.0'
@@ -27,8 +27,9 @@ class YAMLLintBear:
 
     @staticmethod
     def generate_config(filename, file,
-                        document_start: bool=None,
-                        max_line_length: int=80):
+                        document_start: bool = None,
+                        max_line_length: int = 80,
+                        ):
         """
         :param document_start:
             Use this rule to require or forbid the use of document start
@@ -51,7 +52,9 @@ class YAMLLintBear:
         return yaml.dump(yamllint_configs)
 
     @staticmethod
-    def create_arguments(filename, file, config_file, yamllint_config: str=''):
+    def create_arguments(filename, file, config_file,
+                         yamllint_config: str = '',
+                         ):
         """
         :param yamllint_config: Path to a custom configuration file.
         """

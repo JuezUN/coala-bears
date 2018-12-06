@@ -15,7 +15,8 @@ class ClangCloneDetectionBear(GlobalBear):
 
     def run(self,
             dependency_results: dict,
-            max_clone_difference: float=0.185):
+            max_clone_difference: float = 0.185,
+            ):
         '''
         Checks the given code for similar functions that are probably
         redundant.
@@ -23,10 +24,10 @@ class ClangCloneDetectionBear(GlobalBear):
         :param max_clone_difference: The maximum difference a clone should
                                      have.
         '''
-        differences = dependency_results[
-            ClangFunctionDifferenceBear.__name__][0].contents
-        count_matrices = dependency_results[
-            ClangFunctionDifferenceBear.__name__][1].contents
+        dependency_result = dependency_results[
+            ClangFunctionDifferenceBear.__name__][0]
+        differences = dependency_result.differences
+        count_matrices = dependency_result.count_matrices
 
         self.debug('Creating results...')
         for function_1, function_2, difference in differences:

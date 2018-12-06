@@ -27,12 +27,17 @@ class JSComplexityBear:
     def create_arguments(filename, file, config_file):
         return '--format', 'json', filename
 
-    def process_output(self, output, filename, file, cc_threshold: int=10):
+    def process_output(self, output, filename, file,
+                       cc_threshold: int = 10,
+                       ):
         """
         :param cc_threshold: Threshold value for cyclomatic complexity
         """
         message = '{} has a cyclomatic complexity of {}.'
-        if output:
+        if not output:  # backwards compatible no results
+            return
+
+        if True:  # no else
             try:
                 output = json.loads(output)
             except JSONDecodeError:

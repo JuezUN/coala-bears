@@ -8,7 +8,7 @@ from dependency_management.requirements.NpmRequirement import NpmRequirement
         use_stderr=True,
         use_stdout=False,
         output_format='regex',
-        output_regex='(?P<line>\d+)│(?P<message>[\s\S]*)')
+        output_regex=r'(?P<line>\d+)│(?P<message>[\s\S]*)')
 class ElmLintBear:
     """
     This bear formats the Elm source code according to a standard set of rules.
@@ -24,7 +24,7 @@ class ElmLintBear:
     CAN_DETECT = {'Syntax', 'Formatting'}
 
     @classmethod
-    def check_prerequisites(cls):  # pragma: no cover
+    def check_prerequisites(cls):
         if which('elm-format') is None:
             return ('elm-format is missing. Download it from '
                     'https://github.com/avh4/elm-format/blob/master/README.md'

@@ -8,6 +8,7 @@ from coalib.settings.Setting import typed_list
 @linter(executable='cppcheck',
         use_stdout=False,
         use_stderr=True,
+        global_bear=True,
         output_format='regex',
         output_regex=r'(?P<line>\d+):(?P<severity>[a-zA-Z]+):'
                      r'(?P<origin>[a-zA-Z]+):(?P<message>.*)',
@@ -20,16 +21,16 @@ class CPPCheckBear:
     For more information, consult <https://github.com/danmar/cppcheck>.
     """
 
-    LANGUAGES = {'C', 'C++'}
+    LANGUAGES = {'C', 'CPP'}
     REQUIREMENTS = {DistributionRequirement('cppcheck')}
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
     LICENSE = 'AGPL-3.0'
     CAN_DETECT = {'Security', 'Unused Code', 'Unreachable Code', 'Smell'}
 
-    @staticmethod
-    def create_arguments(filename, file, config_file,
-                         enable: typed_list(str)=[]):
+    def create_arguments(self, config_file,
+                         enable: typed_list(str) = [],
+                         ):
         """
         :param enable:
             Choose specific issues to report. Issues that can be
@@ -38,8 +39,9 @@ class CPPCheckBear:
             missingInclude
         """
         args = ('--template={line}:{severity}:{id}:{message}',)
+        files = tuple(self.file_dict.keys())
 
         if enable:
             args += ('--enable=' + ','.join(enable),)
 
-        return args + (filename,)
+        return args + files

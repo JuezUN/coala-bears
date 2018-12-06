@@ -1,7 +1,10 @@
+#!/bin/bash
+
+# This script is no longer used by Travis CI.
+# Any related aspects can be removed if beneficial.
+
 set -e
 set -x
-
-TERM=dumb
 
 # Choose the python versions to install deps for
 case $CIRCLE_NODE_INDEX in
@@ -17,11 +20,10 @@ for dep_version in "${dep_versions[@]}" ; do
   python --version
   source .ci/env_variables.sh
 
-  pip install pip -U
+  pip install pip==9.0.1
   pip install -U setuptools
   pip install -r test-requirements.txt
   pip install -r requirements.txt
-  pip install language_check==0.8.*
 done
 
 pip install -r docs-requirements.txt

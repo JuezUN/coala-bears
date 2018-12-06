@@ -1,10 +1,13 @@
 import os
 import unittest
+from unittest import mock
 
 from queue import Queue
+import logging
 
 
 from bears.general.CPDBear import CPDBear
+from coalib.bearlib.languages import Language
 from coalib.testing.BearTestHelper import generate_skip_decorator
 from coalib.settings.Section import Section
 from coalib.settings.Setting import Setting
@@ -20,6 +23,7 @@ class CPDBearTest(unittest.TestCase):
 
         self.section = Section('default')
         self.section.append(Setting('language', 'java'))
+        self.section.language = Language['Java']
         self.queue = Queue()
 
     def test_good_file(self):
@@ -37,7 +41,6 @@ class CPDBearTest(unittest.TestCase):
         self.assertEqual(result, [])
 
     def test_bad_file(self):
-
         bad_file = os.path.join(self.base_test_path, 'bad_code.java')
 
         with open(bad_file) as file:
@@ -50,3 +53,29 @@ class CPDBearTest(unittest.TestCase):
         result = list(self.uut.run_bear_from_section([], {}))
 
         self.assertNotEqual(result, [])
+
+    def test_unsupported_language(self):
+        self.section.update_setting(
+            key='language', new_value='html')
+        self.section.language = Language['html']
+
+        self.uut = CPDBear({'file_name': 'hello world  \n'},
+                           self.section,
+                           self.queue)
+
+        list(self.uut.run_bear_from_section([], {}))
+        self.assertEqual(
+            self.uut.message_queue.queue[0].log_level, logging.ERROR)
+        self.assertIn('Hypertext Markup Language',
+                      self.uut.message_queue.queue[0].message)
+
+    def test_check_prerequisites(self):
+        with mock.patch('bears.general.CPDBear.which') as mock_which:
+            mock_which.side_effect = [None, None, None]
+            self.assertEqual(CPDBear.check_prerequisites(),
+                             'bash is not installed.')
+
+            mock_which.side_effect = ['path/to/bash', None, None]
+            self.assertEqual(CPDBear.check_prerequisites(),
+                             'PMD is missing. Make sure to install it '
+                             'from <https://pmd.github.io/>.')

@@ -6,6 +6,7 @@ import unittest
 import unittest.mock
 from queue import Queue
 from tempfile import mkdtemp
+from pathlib import Path
 
 from coalib.testing.BearTestHelper import generate_skip_decorator
 from bears.vcs.git.GitCommitBear import GitCommitBear
@@ -79,31 +80,6 @@ class GitCommitBearTest(unittest.TestCase):
             onerror = None
         shutil.rmtree(self.gitdir, onerror=onerror)
 
-    def test_check_prerequisites(self):
-        _shutil_which = shutil.which
-        try:
-            shutil.which = lambda *args, **kwargs: None
-            self.assertEqual(GitCommitBear.check_prerequisites(),
-                             'git is not installed.')
-
-            shutil.which = lambda *args, **kwargs: 'path/to/git'
-            self.assertTrue(GitCommitBear.check_prerequisites())
-        finally:
-            shutil.which = _shutil_which
-
-    def test_get_metadata(self):
-        metadata = GitCommitBear.get_metadata()
-        self.assertEqual(
-            metadata.name,
-            "<Merged signature of 'run', 'check_shortlog', 'check_body'"
-            ", 'check_issue_reference'>")
-
-        # Test if at least one parameter of each signature is used.
-        self.assertIn('allow_empty_commit_message', metadata.optional_params)
-        self.assertIn('shortlog_length', metadata.optional_params)
-        self.assertIn('body_line_length', metadata.optional_params)
-        self.assertIn('body_close_issue', metadata.optional_params)
-
     def test_git_failure(self):
         # In this case use a reference to a non-existing commit, so just try
         # to log all commits on a newly created repository.
@@ -125,11 +101,66 @@ class GitCommitBearTest(unittest.TestCase):
                          [])
         self.assert_no_msgs()
 
-    @unittest.mock.patch('bears.vcs.git.GitCommitBear.run_shell_command',
-                         return_value=('one-liner-message\n', ''))
-    def test_pure_oneliner_message(self, patch):
+    def test_github_pull_request_temporary_merge_commit_check(self):
+        self.run_git_command('remote', 'add', 'upstream',
+                             'https://github.com/coala/coala-quickstart.git')
+        run_shell_command('git fetch upstream pull/259/merge:pytest36')
+        run_shell_command('git checkout pytest36')
         self.assertEqual(self.run_uut(), [])
-        self.assert_no_msgs()
+
+        run_shell_command('git fetch upstream pull/257/merge:patch-1')
+        run_shell_command('git checkout patch-1')
+        self.assertEqual(self.run_uut(),
+                         ["Shortlog of HEAD commit isn't in imperative"
+                          " mood! Bad words are 'Fixed'"])
+
+        self.git_commit('Simple git commit')
+        self.assertEqual(self.run_uut(), [])
+
+    def test_github_PR_merge_commit_check_offline(self):
+        Path('testfile1.txt').touch()
+        run_shell_command('git add testfile1.txt')
+        run_shell_command('git commit -m "First commit"')
+        commit_hash1, _ = run_shell_command('git rev-parse HEAD')
+        commit_hash1 = commit_hash1.strip('\n')
+
+        run_shell_command('git checkout -b feature1 master')
+        Path('testfile2.txt').touch()
+        run_shell_command('git add testfile2.txt')
+        run_shell_command('git commit -m "Second commit"')
+        commit_hash2, _ = run_shell_command('git rev-parse HEAD')
+        commit_hash2 = commit_hash2.strip('\n')
+
+        run_shell_command('git checkout master')
+        run_shell_command('git merge --no-ff feature1')
+        command = ('git commit --amend -m "Merge %s into %s"'
+                   % (commit_hash1, commit_hash2))
+        run_shell_command(command)
+
+        self.assertEqual(self.run_uut(), [])
+
+        Path('testfile3.txt').touch()
+        run_shell_command('git add testfile3.txt')
+        run_shell_command('git commit -m "Adding First commit"')
+        commit_hash1, _ = run_shell_command('git rev-parse HEAD')
+        commit_hash1 = commit_hash1.strip('\n')
+
+        run_shell_command('git checkout -b feature2 master')
+        Path('testfile4.txt').touch()
+        run_shell_command('git add testfile4.txt')
+        run_shell_command('git commit -m "Second commit"')
+        commit_hash2, _ = run_shell_command('git rev-parse HEAD')
+        commit_hash2 = commit_hash2.strip('\n')
+
+        run_shell_command('git checkout master')
+        run_shell_command('git merge --no-ff feature2')
+        command = ('git commit --amend -m "Merge %s into %s"'
+                   % (commit_hash1, commit_hash2))
+        run_shell_command(command)
+
+        self.assertEqual(self.run_uut(),
+                         ["Shortlog of HEAD commit isn't in imperative"
+                          " mood! Bad words are 'Adding'"])
 
     def test_shortlog_checks_length(self):
         self.git_commit('Commit messages that nearly exceed default limit..')
@@ -277,7 +308,7 @@ class GitCommitBearTest(unittest.TestCase):
         self.assertEqual(self.run_uut(
                              body_regex=r'Fix\s+[1-9][0-9]*\s*'),
                          ['No match found in commit message for the regular '
-                          'expression provided: Fix\s+[1-9][0-9]*\s*'])
+                          r'expression provided: Fix\s+[1-9][0-9]*\s*'])
         self.assert_no_msgs()
 
         # Matching with regexp, fully matched
@@ -300,14 +331,137 @@ class GitCommitBearTest(unittest.TestCase):
         self.run_git_command('remote', 'add', 'test',
                              'https://bitbucket.com/user/repo.git')
 
-        # Unsupported Host - Bitbucket
         self.git_commit('Shortlog\n\n'
                         'First line, blablablablablabla.\n'
                         'Another line, blablablablablabla.\n'
                         'Closes #1112')
         self.assertEqual(self.run_uut(
                              body_close_issue=True,
-                             body_close_issue_full_url=True), [])
+                             body_close_issue_full_url=True),
+                         ['Host bitbucket does not support full issue '
+                          'reference.'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Closes #1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True), [])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Resolves https://bitbucket.org/user/repo/issues/1/')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True),
+                         ['Invalid bitbucket issue reference: '
+                          'https://bitbucket.org/user/repo/issues/1/'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Resolves https://bitbucket.org/user/repo/issues/1/')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_close_issue_full_url=True),
+                         ['Host bitbucket does not support full issue '
+                          'reference.'])
+
+        # Adding BitBucket's ssh remote for testing
+        self.run_git_command('remote', 'set-url', 'test',
+                             'git@bitbucket.org:user/repo.git')
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Closes #1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_close_issue_full_url=True),
+                         ['Host bitbucket does not support full issue '
+                          'reference.'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Closes #1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True), [])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Fix issue #1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_enforce_issue_reference=True), [])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Resolving    bug#1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_enforce_issue_reference=True),
+                         ['Invalid bitbucket issue reference: bug#1112'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Fixed randomkeyword#1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_enforce_issue_reference=True),
+                         ['Invalid bitbucket issue reference: '
+                          'randomkeyword#1112'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Closes#1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_enforce_issue_reference=True),
+                         ['Body of HEAD commit does not contain any '
+                          'issue reference.'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Closes bug bug#1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_enforce_issue_reference=True),
+                         ['Invalid bitbucket issue reference: bug'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Closesticket #1112')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_enforce_issue_reference=True),
+                         ['Body of HEAD commit does not contain any '
+                          'issue reference.'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Resolves https://bitbucket.org/user/repo/issues/1/')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True),
+                         ['Invalid bitbucket issue reference: '
+                          'https://bitbucket.org/user/repo/issues/1/'])
+
+        self.git_commit('Shortlog\n\n'
+                        'First line, blablablablablabla.\n'
+                        'Another line, blablablablablabla.\n'
+                        'Resolves https://bitbucket.org/user/repo/issues/1/')
+        self.assertEqual(self.run_uut(
+                             body_close_issue=True,
+                             body_close_issue_full_url=True),
+                         ['Host bitbucket does not support full issue '
+                          'reference.'])
 
         # Adding GitHub remote for testing, ssh way :P
         self.run_git_command('remote', 'set-url', 'test',
@@ -334,6 +488,12 @@ class GitCommitBearTest(unittest.TestCase):
                              body_close_issue_on_last_line=True), [])
         self.assert_no_msgs()
 
+        # No keywords, no issues, no body
+        self.git_commit('Shortlog only')
+        self.assertEqual(self.run_uut(body_close_issue=True,
+                                      body_close_issue_on_last_line=True), [])
+        self.assert_no_msgs()
+
         # Has keyword but no valid issue URL
         self.git_commit('Shortlog\n\n'
                         'First line, blablablablablabla.\n'
@@ -342,7 +502,7 @@ class GitCommitBearTest(unittest.TestCase):
         self.assertEqual(self.run_uut(
                              body_close_issue=True,
                              body_close_issue_full_url=True),
-                         ['Invalid full issue reference: '
+                         ['Invalid github full issue reference: '
                           'https://github.com/user/repo.git'])
         self.assert_no_msgs()
 
@@ -359,7 +519,7 @@ class GitCommitBearTest(unittest.TestCase):
                         'Another line, blablablablablabla.\n'
                         'Fix #01112 and #111')
         self.assertEqual(self.run_uut(body_close_issue=True,),
-                         ['Invalid issue number: #01112'])
+                         ['Invalid github issue number: #01112'])
         self.assert_no_msgs()
 
         # GitHub host with no full issue reference
@@ -370,7 +530,7 @@ class GitCommitBearTest(unittest.TestCase):
         self.assertEqual(self.run_uut(
                              body_close_issue=True,
                              body_close_issue_full_url=True),
-                         ['Invalid full issue reference: #1112'])
+                         ['Invalid github full issue reference: #1112'])
         self.assert_no_msgs()
 
         # Invalid characters in issue number
@@ -381,7 +541,7 @@ class GitCommitBearTest(unittest.TestCase):
         self.assertEqual(self.run_uut(
                              body_close_issue=True,
                              body_close_issue_full_url=True),
-                         ['Invalid full issue reference: #1112-3'])
+                         ['Invalid github full issue reference: #1112-3'])
         self.assert_no_msgs()
 
         # Adding GitLab remote for testing
@@ -407,7 +567,7 @@ class GitCommitBearTest(unittest.TestCase):
         self.assertEqual(self.run_uut(
                              body_close_issue=True,
                              body_close_issue_full_url=True),
-                         ['Invalid issue number: '
+                         ['Invalid gitlab full issue reference: '
                           'https://gitlab.com/user/repo/issues/not_num'])
         self.assert_no_msgs()
 
@@ -419,7 +579,7 @@ class GitCommitBearTest(unittest.TestCase):
         self.assertEqual(self.run_uut(
                              body_close_issue=True,
                              body_close_issue_full_url=True),
-                         ['Invalid full issue reference: '
+                         ['Invalid gitlab full issue reference: '
                           'www.google.com/issues/hehehe'])
         self.assert_no_msgs()
 
@@ -429,7 +589,7 @@ class GitCommitBearTest(unittest.TestCase):
                         'Another line, blablablablablabla.\n'
                         'Resolve #11 and close #notnum')
         self.assertEqual(self.run_uut(body_close_issue=True,),
-                         ['Invalid issue number: #notnum'])
+                         ['Invalid gitlab issue reference: #notnum'])
         self.assert_no_msgs()
 
         # Close issues in other repos
@@ -446,7 +606,7 @@ class GitCommitBearTest(unittest.TestCase):
                         'Another line, blablablablablabla.\n'
                         'Fix #11 and close github#32')
         self.assertEqual(self.run_uut(body_close_issue=True,),
-                         ['Invalid issue reference: github#32'])
+                         ['Invalid gitlab issue reference: github#32'])
         self.assert_no_msgs()
 
         # Last line enforce full URL
@@ -481,38 +641,3 @@ class GitCommitBearTest(unittest.TestCase):
                          self.gitdir)
         os.chdir(self.gitdir)
         os.rmdir(no_git_dir)
-
-    def test_nltk_download_disabled(self):
-        # setUp has already initialised GitCommitBear.
-        self.assertTrue(GitCommitBear._nltk_data_downloaded)
-
-        section = Section('commit')
-        section.append(Setting('shortlog_check_imperative', 'False'))
-
-        GitCommitBear._nltk_data_downloaded = False
-        GitCommitBear(None, section, self.msg_queue)
-        self.assertFalse(GitCommitBear._nltk_data_downloaded)
-
-        # reset
-        GitCommitBear._nltk_data_downloaded = True
-
-    def test_nltk_download(self):
-        # setUp has already initialised GitCommitBear.
-        self.assertTrue(GitCommitBear._nltk_data_downloaded)
-
-        section = Section('commit')
-        section.append(Setting('shortlog_check_imperative', 'True'))
-
-        GitCommitBear._nltk_data_downloaded = False
-        GitCommitBear(None, section, self.msg_queue)
-        self.assertTrue(GitCommitBear._nltk_data_downloaded)
-
-    def test_nltk_download_default(self):
-        # setUp has already initialised GitCommitBear.
-        self.assertTrue(GitCommitBear._nltk_data_downloaded)
-
-        section = Section('commit')
-
-        GitCommitBear._nltk_data_downloaded = False
-        GitCommitBear(None, section, self.msg_queue)
-        self.assertTrue(GitCommitBear._nltk_data_downloaded)

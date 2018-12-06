@@ -17,22 +17,23 @@ class SpaceConsistencyBear(LocalBear):
             filename,
             file,
             use_spaces: bool,
-            allow_trailing_whitespace: bool=False,
-            indent_size: int=SpacingHelper.DEFAULT_TAB_WIDTH,
-            enforce_newline_at_EOF: bool=True):
+            allow_trailing_whitespace: bool = False,
+            indent_size: int = SpacingHelper.DEFAULT_TAB_WIDTH,
+            enforce_newline_at_EOF: bool = True,
+            ):
         '''
         Check and correct spacing for all textual data. This includes usage of
         tabs vs. spaces, trailing whitespace and (missing) newlines before
         the end of the file.
 
-        :param use_spaces:                True if spaces are to be used instead
-                                          of tabs.
-        :param allow_trailing_whitespace: Whether to allow trailing whitespace
-                                          or not.
-        :param indent_size:               Number of spaces per indentation
-                                          level.
-        :param enforce_newline_at_EOF:    Whether to enforce a newline at the
-                                          End Of File.
+        :param use_spaces:
+            True if spaces are to be used instead of tabs.
+        :param allow_trailing_whitespace:
+            Whether to allow trailing whitespace or not.
+        :param indent_size:
+            Number of spaces per indentation level.
+        :param enforce_newline_at_EOF:
+            Whether to enforce a newline at the End Of File.
         '''
         spacing_helper = SpacingHelper(indent_size)
         result_texts = []
@@ -66,8 +67,7 @@ class SpaceConsistencyBear(LocalBear):
 
             if use_spaces:
                 pre_replacement = replacement
-                replacement = spacing_helper.replace_tabs_with_spaces(
-                    replacement)
+                replacement = replacement.expandtabs(indent_size)
                 if replacement != pre_replacement:
                     result_texts.append('Tabs used instead of spaces.')
             else:

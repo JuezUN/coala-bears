@@ -17,7 +17,7 @@ class TSLintBear:
     """
 
     LANGUAGES = {'TypeScript'}
-    REQUIREMENTS = {NpmRequirement('tslint', '3'),
+    REQUIREMENTS = {NpmRequirement('tslint', '>=3.0 <6.0'),
                     NpmRequirement('typescript', '>=1.7.3')}
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
@@ -27,7 +27,9 @@ class TSLintBear:
 
     @staticmethod
     def create_arguments(filename, file, config_file,
-                         tslint_config: path='', rules_dir: path=''):
+                         tslint_config: path = '',
+                         rules_dir: path = '',
+                         ):
         """
         :param tslint_config: Path to configuration file.
         :param rules_dir:     Rules directory
@@ -35,7 +37,7 @@ class TSLintBear:
         args = ('--format', 'json')
         if tslint_config:
             args += ('--config', tslint_config)
-        if rules_dir:
+        if rules_dir:  # pragma: no cover
             args += ('--rules-dir', rules_dir)
         return args + (filename,)
 

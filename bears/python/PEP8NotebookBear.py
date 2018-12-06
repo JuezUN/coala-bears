@@ -1,5 +1,6 @@
 import autopep8
 import nbformat
+import sys
 
 from coalib.bearlib.spacing.SpacingHelper import SpacingHelper
 from coalib.bears.LocalBear import LocalBear
@@ -8,7 +9,7 @@ from coalib.results.Diff import Diff
 from coalib.results.Result import Result
 from coalib.settings.Setting import typed_list
 
-# Comments regarind Jupyter Notebooks:
+# Comments regarding Jupyter Notebooks:
 # The `nbformat` module contains the reference implementation of the Jupyter
 # Notebook format, and Python APIs for working with notebooks.
 # On the file level, a notebook is a JSON file, i.e. dictionary with a few
@@ -73,16 +74,18 @@ class PEP8NotebookBear(LocalBear):
     CAN_FIX = {'Formatting'}
 
     def run(self, filename, file,
-            max_line_length: int=79,
-            indent_size: int=SpacingHelper.DEFAULT_TAB_WIDTH,
-            pep_ignore: typed_list(str)=(),
-            pep_select: typed_list(str)=(),
-            local_pep8_config: bool=False):
+            max_line_length: int = 79,
+            indent_size: int = SpacingHelper.DEFAULT_TAB_WIDTH,
+            pep_ignore: typed_list(str) = (),
+            pep_select: typed_list(str) = (),
+            local_pep8_config: bool = False,
+            ):
         """
         Detects and fixes PEP8 incompliant code in Jupyter Notebooks. This bear
         will not change functionality of the code in any way.
 
         :param max_line_length:   Maximum number of characters for a line.
+                                  When set to 0 allows infinite line length.
         :param indent_size:       Number of spaces per indent level.
         :param pep_ignore:        A list of errors/warnings to ignore.
         :param pep_select:        A list of errors/warnings to exclusively
@@ -90,6 +93,9 @@ class PEP8NotebookBear(LocalBear):
         :param local_pep8_config: Set to true if autopep8 should use a config
                                   file as if run normally from this directory.
         """
+        if not max_line_length:
+            max_line_length = sys.maxsize
+
         options = {'ignore': pep_ignore,
                    'select': pep_select,
                    'max_line_length': max_line_length,

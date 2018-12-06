@@ -1,5 +1,6 @@
 import platform
 import shlex
+import sys
 
 from coalib.bearlib import deprecate_settings
 from coalib.bearlib.abstractions.Linter import linter
@@ -20,7 +21,7 @@ class GNUIndentBear:
     C++ support is considered experimental.
     """
 
-    LANGUAGES = {'C', 'C++'}
+    LANGUAGES = {'C', 'CPP'}
     REQUIREMENTS = {DistributionRequirement('indent')}
     AUTHORS = {'The coala developers'}
     AUTHORS_EMAILS = {'coala-devel@googlegroups.com'}
@@ -30,28 +31,30 @@ class GNUIndentBear:
     @staticmethod
     @deprecate_settings(indent_size='tab_width')
     def create_arguments(filename, file, config_file,
-                         max_line_length: int=79,
-                         use_spaces: bool=True,
-                         blank_lines_after_declarations: bool=False,
-                         blank_lines_after_procedures: bool=False,
-                         blank_lines_after_commas: bool=False,
-                         braces_on_if_line: bool=False,
-                         braces_on_func_def_line: bool=False,
-                         cuddle_else: bool=False,
-                         while_and_brace_on_same_line: bool=False,
-                         case_indentation: int=0,
-                         space_before_semicolon_after_empty_loop: bool=True,
-                         delete_optional_blank_lines: bool=True,
-                         declaration_indent: int=0,
-                         brace_indent: int=2,
-                         gnu_style: bool=False,
-                         k_and_r_style: bool=False,
-                         linux_style: bool=False,
-                         indent_size: int=SpacingHelper.DEFAULT_TAB_WIDTH,
-                         indent_cli_options: str=''):
+                         max_line_length: int = 79,
+                         use_spaces: bool = True,
+                         blank_lines_after_declarations: bool = False,
+                         blank_lines_after_procedures: bool = False,
+                         blank_lines_after_commas: bool = False,
+                         braces_on_if_line: bool = False,
+                         braces_on_func_def_line: bool = False,
+                         cuddle_else: bool = False,
+                         while_and_brace_on_same_line: bool = False,
+                         case_indentation: int = 0,
+                         space_before_semicolon_after_empty_loop: bool = True,
+                         delete_optional_blank_lines: bool = True,
+                         declaration_indent: int = 0,
+                         brace_indent: int = 2,
+                         gnu_style: bool = False,
+                         k_and_r_style: bool = False,
+                         linux_style: bool = False,
+                         indent_size: int = SpacingHelper.DEFAULT_TAB_WIDTH,
+                         indent_cli_options: str = '',
+                         ):
         """
         :param max_line_length:
             Maximum number of characters for a line.
+            When set to 0, infinite line length is allowed.
         :param use_spaces:
             True if spaces are to be used, else tabs.
         :param blank_lines_after_declarations:
@@ -153,6 +156,10 @@ class GNUIndentBear:
             Any command line options the indent binary understands. They
             will be simply passed through.
         """
+        # The limit is set to an arbitrary high value
+        if not max_line_length:
+            max_line_length = sys.maxsize
+
         indent_options = ('--no-tabs' if use_spaces else '--use-tabs',
                           '--line-length', str(max_line_length),
                           '--indent-level', str(indent_size),
@@ -188,6 +195,7 @@ class GNUIndentBear:
         indent_style_option += (('--linux-style',)
                                 if linux_style and indent_style_option is ()
                                 else ())
+
         # If a style is chosen the other configs aren't passed to `indent`
         return (indent_style_option if indent_style_option is not ()
                 else indent_options) + tuple(shlex.split(indent_cli_options))

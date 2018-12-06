@@ -2,6 +2,7 @@ from queue import Queue
 from textwrap import dedent
 
 from bears.python.MypyBear import MypyBear
+from coalib.bearlib.languages import Language
 from coalib.testing.BearTestHelper import generate_skip_decorator
 from coalib.testing.LocalBearTestHelper import LocalBearTestHelper
 from coalib.settings.Section import Section
@@ -21,38 +22,40 @@ class MypyBearTest(LocalBearTestHelper):
 
     def test_variable(self):
         self.check_validity(self.uut,
-                            ['a = 1  # type: int'], valid=True)
-        self.check_validity(self.uut,
-                            ["a = 'abc'  # type: int"], valid=False)
+                            ['a = 1  # type: int'])
+        self.check_invalidity(self.uut,
+                              ["a = 'abc'  # type: int"])
 
     def test_call_sum(self):
         self.check_validity(self.uut,
-                            ['sum([1, 2, 3])'], valid=True)
-        self.check_validity(self.uut,
-                            ['sum(1, 2, 3)'], valid=False)
+                            ['sum([1, 2, 3])'])
+        self.check_invalidity(self.uut,
+                              ['sum(1, 2, 3)'])
 
     def test_py2(self):
         self.check_validity(self.uut,
-                            ['print(123)'], valid=True)
-        self.check_validity(self.uut,
-                            ['print 123'], valid=False)
+                            ['print(123)'])
+        self.check_invalidity(self.uut,
+                              ['print 123'])
         self.section.append(Setting('language', 'Python 2'))
+        self.section.language = Language['Python 2']
         self.check_validity(self.uut,
-                            ['print 123'], valid=True)
+                            ['print 123'])
 
     def test_py2_version(self):
         self.check_validity(self.uut,
-                            ['print(123)'], valid=True)
-        self.check_validity(self.uut,
-                            ['print 123'], valid=False)
+                            ['print(123)'])
+        self.check_invalidity(self.uut,
+                              ['print 123'])
         self.section.append(Setting('python_version', '2.7'))
         self.check_validity(self.uut,
-                            ['print 123'], valid=True)
+                            ['print 123'])
 
     def test_bad_language(self):
-        self.section.append(Setting('language', 'Piet'))
+        self.section.append(Setting('language', 'Java'))
+        self.section.language = Language['Java']
         self.check_validity(self.uut,
-                            ['1 + 1'], valid=True)
+                            ['1 + 1'])
         while not self.queue.empty():
             message = self.queue.get()
             msg = ('Language needs to be "Python", "Python 2" or '
@@ -67,18 +70,18 @@ class MypyBearTest(LocalBearTestHelper):
             def foo():
                 return 1 + "abc"
         """).splitlines()
-        self.check_validity(self.uut, source, valid=True)
+        self.check_validity(self.uut, source)
         self.section.append(Setting('check_untyped_function_bodies', 'true'))
-        self.check_validity(self.uut, source, valid=False)
+        self.check_invalidity(self.uut, source)
 
     def test_allow_untyped_functions(self):
         source = dedent("""
             def foo():
                 pass
         """).splitlines()
-        self.check_validity(self.uut, source, valid=True)
+        self.check_validity(self.uut, source)
         self.section.append(Setting('allow_untyped_functions', 'false'))
-        self.check_validity(self.uut, source, valid=False)
+        self.check_invalidity(self.uut, source)
 
     def test_allow_untyped_calls(self):
         source = dedent("""
@@ -87,9 +90,9 @@ class MypyBearTest(LocalBearTestHelper):
 
             foo()
         """).splitlines()
-        self.check_validity(self.uut, source, valid=True)
+        self.check_validity(self.uut, source)
         self.section.append(Setting('allow_untyped_calls', 'false'))
-        self.check_validity(self.uut, source, valid=False)
+        self.check_invalidity(self.uut, source)
 
     def test_strict_optional(self):
         source = dedent("""
@@ -99,9 +102,9 @@ class MypyBearTest(LocalBearTestHelper):
                 with open(path) as f:  # Error
                     return f.read().split(',')
         """).splitlines()
-        self.check_validity(self.uut, source, valid=True)
+        self.check_validity(self.uut, source)
         self.section.append(Setting('strict_optional', 'true'))
-        self.check_validity(self.uut, source, valid=False)
+        self.check_invalidity(self.uut, source)
 
     def test_discarded_note(self):
         source = dedent("""

@@ -14,25 +14,29 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import collections
+import copy
 import itertools
-import json
 import os
 import sys
 
-from jinja2 import Environment, FileSystemLoader
-from pyprint.NullPrinter import NullPrinter
+from ruamel.yaml import YAML, RoundTripDumper
+from ruamel.yaml.comments import CommentedMap
 
 from coalib.bears.BEAR_KIND import BEAR_KIND
 from coalib.collecting.Collectors import collect_bears
-from coalib.output.printers.LogPrinter import LogPrinter
 
-from dependency_management.requirements.GemRequirement import GemRequirement
-from dependency_management.requirements.NpmRequirement import NpmRequirement
-from dependency_management.requirements.PipRequirement import PipRequirement
+from dependency_management.requirements.AnyOneOfRequirements import (
+    AnyOneOfRequirements)
 
-NPM_REQUIREMENTS_TEMPLATE_FILE = "package.json.jinja2"
+yaml = YAML(typ='rt')
+yaml.default_flow_style = False
+yaml.Dumper = RoundTripDumper
 
-GEM_REQUIREMENTS_TEMPLATE_FILE = "Gemfile.jinja2"
+BEAR_REQUIREMENTS_YAML = 'bear-requirements.yaml'
+BEAR_LANGUAGES_YAML = 'bear-languages.yaml'
+
+_VERSION_OPERATORS = ('<', '>', '~', '=', '-', '!')
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,37 +44,51 @@ PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 PROJECT_BEAR_DIR = os.path.abspath(os.path.join(PROJECT_DIR, 'bears'))
 
-PINNED_PACKAGES = (
-   'radon',
-   'click',
+SUPPORTED_INSTANCES = (
+    'PipRequirement',
+    'NpmRequirement',
+    'GemRequirement',
+    'ComposerRequirement',
+    'CabalRequirement',
+    'RscriptRequirement',
 )
 
-env = Environment(loader=FileSystemLoader(THIS_DIR))
-env.filters['jsonify'] = json.dumps
+INSTANCE_NAMES = (
+    'pip_requirements',
+    'npm_requirements',
+    'gem_requirements',
+    'composer_requirements',
+    'cabal_requirements',
+    'r_script_requirements',
+)
 
 
 def get_args():
     parser = argparse.ArgumentParser(
-        description='This program generates a pip requirement file for '
+        description='This program generates a yaml requirement file for '
                     'installation of linters that are used by the bears.')
     parser.add_argument('--output', '-o',
                         help='name of file to generate, or - for stdout',
                         default=os.path.join(PROJECT_DIR,
-                                             'bear-requirements.txt'))
+                                             BEAR_REQUIREMENTS_YAML))
     parser.add_argument('--bear-dirs', '-d', nargs='+', metavar='DIR',
                         help='additional directories which may contain bears')
 
+    parser.add_argument('--check', '-c', action='store_true',
+                        help='performs a dry run, and reports differences.')
+    parser.add_argument('--update', '-u', action='store_true',
+                        help='updates "bear-requirements.yaml" '
+                             'instead of overwriting')
     args = parser.parse_args()
 
     return args
 
 
-def get_all_bears(bear_dirs, log_printer):
+def get_all_bears(bear_dirs):
     local_bears, global_bears = collect_bears(
         bear_dirs,
         ['**'],
         [BEAR_KIND.LOCAL, BEAR_KIND.GLOBAL],
-        log_printer,
         warn_if_unused_glob=False)
     return list(itertools.chain(local_bears, global_bears))
 
@@ -95,84 +113,127 @@ def get_inherited_requirements():
     return inherited_requirements
 
 
+def helper(requirements, instance_dict):
+    for requirement in requirements:
+        if isinstance(requirement, AnyOneOfRequirements):
+            helper(requirement.requirements, instance_dict)
+        elif any(type(requirement).__name__ == instance
+                 for instance in SUPPORTED_INSTANCES):
+            instance_dict[type(requirement).__name__].add(requirement)
+
+
 def get_all_requirements(bears):
-    pip_requirements = []
-    npm_requirements = []
-    gem_requirements = []
+    instance_dict = collections.defaultdict(set)
 
     for bear in bears:
-        for requirement in bear.REQUIREMENTS:
-            if isinstance(requirement, PipRequirement) and \
-               requirement not in pip_requirements:
-                pip_requirements.append(requirement)
-            elif isinstance(requirement, NpmRequirement) and \
-               requirement not in npm_requirements:
-                npm_requirements.append(requirement)
-            elif isinstance(requirement, GemRequirement) and \
-               requirement not in gem_requirements:
-                gem_requirements.append(requirement)
+        helper(bear.REQUIREMENTS, instance_dict)
 
-    return (
-        sorted(pip_requirements, key=lambda requirement: requirement.package),
-        sorted(npm_requirements, key=lambda requirement: requirement.package),
-        sorted(gem_requirements, key=lambda requirement: requirement.package)
-        )
+    return instance_dict
 
 
-def write_gem_requirements(requirements):
-    gem_dependencies = []
-    template = env.get_template(GEM_REQUIREMENTS_TEMPLATE_FILE)
+def _to_entry(requirement, default_operator):
+    assert requirement.version, '%s has no version' % requirement.package
+    entry = {}
 
-    for requirement in requirements:
-        gem_dependencies.append(
-            {'name': requirement.package,
-             'version': requirement.version,
-             'required': requirement.require})
-
-    gemfile_string = template.render(
-        gems=gem_dependencies
-        )
-
-    with open(os.path.join(PROJECT_DIR, "Gemfile"), 'w') as file:
-        file.write(gemfile_string)
+    if requirement.version[0].isdigit():
+        entry['version'] = default_operator + requirement.version
+    else:
+        assert requirement.version[0] in _VERSION_OPERATORS, \
+               'Unknown version operator in %s' % requirement.version
+        entry['version'] = requirement.version
+    return entry
 
 
-def write_npm_requirements(requirements):
-    npm_dependencies = {}
-    template = env.get_template(NPM_REQUIREMENTS_TEMPLATE_FILE)
-
-    for requirement in requirements:
-        req_version = requirement.version
-        package_name = requirement.package
-        if req_version:
-            if req_version[0] in ('<', '>', '~', '='):
-                npm_dependencies[package_name] = req_version
-            else:
-                npm_dependencies[package_name] = "~" + req_version
-        else:
-            npm_dependencies[package_name] = "*"
-
-    package_json_string = template.render(
-        dependencies=npm_dependencies, version="0.8.0")
-
-    with open(os.path.join(PROJECT_DIR, "package.json"), 'w') as file:
-        file.write(package_json_string)
+def _get_requirements(requirements, default_operator, exclude=[]):
+    return dict(
+        (requirement.package, _to_entry(requirement, default_operator))
+        for requirement in requirements
+        if requirement.package not in exclude
+    )
 
 
-def write_pip_requirements(requirements, output):
+def get_gem_requirements(requirements):
+    return _get_requirements(requirements, '~>')
+
+def get_r_requirements(requirements):
+    return _get_requirements(requirements, '>=')
+
+def get_npm_requirements(requirements):
+    return _get_requirements(requirements, '~')
+
+
+def get_composer_requirements(requirements):
+    return _get_requirements(requirements, '~')
+
+
+def get_pip_requirements(requirements):
     inherited_requirements = get_inherited_requirements()
+    return _get_requirements(requirements, '~=', inherited_requirements)
 
-    for requirement in requirements:
-        if requirement.package in inherited_requirements:
-            continue
 
-        if requirement.version:
-            marker = '==' if requirement.package in PINNED_PACKAGES else '~='
-            output.write('{0}{1}{2}\n'.format(requirement.package,
-                                              marker,
-                                              requirement.version))
+def get_cabal_requirements(requirements):
+    return _get_requirements(requirements, '==')
+
+
+def _create_sorted_commented_map(input_dict):
+    return CommentedMap(sorted(input_dict.items(),
+                               key=lambda t: t[0]))
+
+
+def get_languages(bears):
+    language_dict = {}
+    for bear in bears:
+        language_dict[str(bear.name)] = list(sorted(bear.LANGUAGES))
+    for key, value in language_dict.items():
+        if 'All' in value:
+            value.remove('All')
+        if 'default' in value:
+            value.remove('default')
+        if not value:
+            language_dict[key] = None
+
+    return language_dict
+
+
+def deep_update(target, src):
+    for key, value in src.items():
+        if key not in target:
+            target[key] = copy.deepcopy(value)
         else:
-            output.write(requirement.package + '\n')
+            if isinstance(value, list):
+                target[key].extend(value)
+            elif isinstance(value, dict):
+                deep_update(target[key], value)
+            elif isinstance(value, set):
+                target[key].update(value.copy())
+            else:
+                target[key] = copy.copy(value)
+
+
+def deep_diff(target, src):
+    errors = []
+    for key, value in src.items():
+        if key not in target:
+            errors.append((key, 'Missing'))
+        elif target[key] != value:
+            if isinstance(value, list):
+                if [x for x in value if x not in target[key]]:
+                    errors.append(key)
+            elif isinstance(value, dict):
+                if target[key] != value:
+                    errors.append((key, deep_diff(target[key], value)))
+            elif isinstance(value, set):
+                if set(target[key]).symmetric_difference(value):
+                    errors.append(key)
+            else:
+                errors.append((key, target[key]))
+    return errors
+
+
+
+def sort_requirements(req_dict):
+    for key in INSTANCE_NAMES:
+        req_dict[key] = _create_sorted_commented_map(req_dict[key])
 
 
 if __name__ == '__main__':
@@ -180,26 +241,68 @@ if __name__ == '__main__':
 
     bear_dirs = [PROJECT_BEAR_DIR]
 
-    printer = NullPrinter()
-    log_printer = LogPrinter(printer)
-
     if args.bear_dirs is not None:
         bear_dirs.extend(args.bear_dirs)
 
-    pip_reqs, npm_reqs, gem_reqs = (
-        get_all_requirements(get_all_bears(bear_dirs, log_printer))
-        )
+    all_bears = get_all_bears(bear_dirs)
 
-    write_gem_requirements(gem_reqs)
+    instance_dict = get_all_requirements(all_bears)
 
-    write_npm_requirements(npm_reqs)
+    requirements = CommentedMap()
+    requirements.yaml_set_start_comment(
+        'This is an automatically generated file.\n'
+        'And should not be edited by hand.')
 
-    output = None
+    requirements['overrides'] = 'coala-build.yaml'
+    requirements['gem_requirements'] = get_gem_requirements(
+                                            instance_dict['GemRequirement'])
+    requirements['r_script_requirements'] = get_r_requirements(
+                                            instance_dict['RscriptRequirement'])
+    requirements['npm_requirements'] = get_npm_requirements(
+                                            instance_dict['NpmRequirement'])
+    requirements['pip_requirements'] = get_pip_requirements(
+                                            instance_dict['PipRequirement'])
+    requirements['composer_requirements'] = get_composer_requirements(
+                                            instance_dict['ComposerRequirement'])
+    requirements['cabal_requirements'] = get_cabal_requirements(
+                                            instance_dict['CabalRequirement'])
+
+    if args.update or args.check:
+        input_file_path = os.path.join(PROJECT_DIR, BEAR_REQUIREMENTS_YAML)
+
+        try:
+            input_file = open(input_file_path, 'r')
+        except FileNotFoundError:
+            print('bear-requirements.yaml not found. '
+                  'Run without flags to generate it.')
+            exit(1)
+
+        input_requirments = yaml.load(input_file)
+
+        new_requirments = copy.deepcopy(input_requirments)
+        deep_update(new_requirments, requirements)
+
+        if args.update:
+            requirements = new_requirments
+
+        if args.check:
+            changed = deep_diff(input_requirments, new_requirments)
+            if changed:
+                yaml.dump(changed, sys.stdout)
+                exit(1)
 
     if args.output == '-':
         output = sys.stdout
     else:
         output = open(args.output, 'w')
 
-    write_pip_requirements(pip_reqs, output)
+    language_requirements = get_languages(all_bears)
+    language_requirements = _create_sorted_commented_map(language_requirements)
+    file_path = os.path.join(PROJECT_DIR, BEAR_LANGUAGES_YAML)
+    with open(file_path, 'w') as outfile:
+        yaml.indent(mapping=2, sequence=4, offset=2)
+        yaml.dump(language_requirements, outfile)
+
+    sort_requirements(requirements)
+    yaml.dump(requirements, output)
     output.close()

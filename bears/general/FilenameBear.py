@@ -26,8 +26,12 @@ class FilenameBear(LocalBear):
                                   }
 
     def run(self, filename, file,
-            file_naming_convention: str=None,
-            ignore_uppercase_filenames: bool=True):
+            max_filename_length: int = 260,
+            file_naming_convention: str = None,
+            ignore_uppercase_filenames: bool = True,
+            filename_prefix: str = '',
+            filename_suffix: str = '',
+            ):
         """
         Checks whether the filename follows a certain naming-convention.
 
@@ -40,9 +44,17 @@ class FilenameBear(LocalBear):
             - ``pascal`` (``ThisIsPascalCase``)
             - ``snake`` (``this_is_snake_case``)
             - ``space`` (``This Is Space Case``)
+        :param max_filename_length:
+            Maximum filename length on both Windows and Unix-like systems.
         :param ignore_uppercase_filenames:
             Whether or not to ignore fully uppercase filenames completely,
             e.g. COPYING, LICENSE etc.
+        :param filename_prefix:
+            Check whether the filename uses a certain prefix.
+            The file's extension is ignored.
+        :param filename_suffix:
+            Check whether the filename uses a certain suffix.
+            The file's extension is ignored.
         """
         head, tail = os.path.split(filename)
         filename_without_extension, extension = os.path.splitext(tail)
@@ -63,6 +75,8 @@ class FilenameBear(LocalBear):
                           'Using the default "snake" naming convention.')
                 file_naming_convention = 'snake'
 
+        messages = []
+
         try:
             new_name = self._naming_convention[file_naming_convention](
                 filename_without_extension)
@@ -71,15 +85,40 @@ class FilenameBear(LocalBear):
                      file_naming_convention)
             return
 
+        if new_name != filename_without_extension:
+            messages.append(
+                'Filename does not follow {} naming-convention.'.format(
+                    file_naming_convention))
+
+        if not filename_without_extension.startswith(filename_prefix):
+            new_name = filename_prefix + new_name
+            messages.append(
+                'Filename does not use the prefix {!r}.'.format(
+                    filename_prefix))
+
+        if not filename_without_extension.endswith(filename_suffix):
+            new_name = new_name + filename_suffix
+            messages.append(
+                'Filename does not use the suffix {!r}.'.format(
+                    filename_suffix))
+
+        if len(filename) > max_filename_length:
+            messages.append(
+                'Filename is too long ({} > {}).'.format(
+                    len(filename),
+                    max_filename_length))
+
         if ignore_uppercase_filenames and filename_without_extension.isupper():
             return
 
-        if new_name != filename_without_extension:
-            diff = Diff(file, rename=os.path.join(head, new_name + extension))
+        if messages:
+            message = ('\n'.join('- ' + mes for mes in messages)
+                       if len(messages) > 1 else messages[0])
+            result_kwargs = dict(message=message, file=filename)
 
-            yield Result(
-                self,
-                'Filename does not follow {} naming-convention.'.format(
-                    file_naming_convention),
-                diff.affected_code(filename),
-                diffs={filename: diff})
+            if new_name != filename_without_extension:
+                diff = Diff(file,
+                            rename=os.path.join(head, new_name + extension))
+                result_kwargs['diffs'] = {filename: diff}
+
+            yield Result.from_values(self, **result_kwargs)
